@@ -309,6 +309,18 @@
             visibility: hidden;
         }
 
+        .thumb.dragging .idx {
+            visibility: visible;
+            color: var(--accent);
+        }
+
+        .thumb-ghost {
+            z-index: 200;
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55);
+            cursor: grabbing;
+            will-change: transform;
+        }
+
         .thumb img {
             width: 40px;
             height: 40px;
@@ -670,6 +682,14 @@
             background: transparent;
         }
 
+        body.no-select,
+        body.no-select * {
+            user-select: none !important;
+            -webkit-user-select: none !important;
+            -moz-user-select: none !important;
+            -ms-user-select: none !important;
+        }
+
         @media (max-width: 760px) {
             .app {
                 flex-direction: column;
@@ -793,8 +813,8 @@
             <div class="section">
                 <div class="section-title">Direction</div>
                 <div class="seg" id="directionSeg">
-                    <button data-dir="row" class="active">Horizontal (rows)</button>
-                    <button data-dir="column">Vertical (columns)</button>
+                    <button data-dir="row">Horizontal (rows)</button>
+                    <button data-dir="column" class="active">Vertical (columns)</button>
                 </div>
             </div>
 
@@ -863,7 +883,7 @@
         (function () {
             const state = {
                 images: [], // {id, src, naturalW, naturalH}
-                direction: 'row',
+                direction: 'column',
                 columns: 1,
                 canvasWidth: 1080,
                 gap: 0,
@@ -872,7 +892,6 @@
                 bgTransparent: false,
             };
             let idCounter = 0;
-            let dragSrcId = null;
             let dragPreSnapshot = null;
 
             const $ = sel => document.querySelector(sel);
@@ -1161,6 +1180,7 @@
                     e.preventDefault();
                     try { handle.setPointerCapture(e.pointerId); } catch (err) { }
                     handle.classList.add('active');
+                    document.body.classList.add('no-select');
                     const startX = e.clientX, startY = e.clientY;
                     const startSidebarW = sidebar.getBoundingClientRect().width;
                     const startPreviewH = $('.main').getBoundingClientRect().height;
@@ -1187,6 +1207,7 @@
                         ended = true;
                         try { handle.releasePointerCapture(e.pointerId); } catch (err) { }
                         handle.classList.remove('active');
+                        document.body.classList.remove('no-select');
                         window.removeEventListener('pointermove', onMove);
                         window.removeEventListener('pointerup', onEnd);
                         window.removeEventListener('pointercancel', onEnd);
@@ -1286,36 +1307,67 @@
                 });
             }
 
-            imgListEl.addEventListener('dragover', e => {
-                e.preventDefault();
-                const dragging = imgListEl.querySelector('.thumb.dragging');
-                if (!dragging) return;
-                const afterElement = getDragAfterElement(imgListEl, e.clientY);
-                if (afterElement == null) {
-                    imgListEl.appendChild(dragging);
-                } else if (afterElement !== dragging) {
-                    imgListEl.insertBefore(dragging, afterElement);
-                }
-                refreshThumbIndices();
-            });
+            function attachThumbDrag(row) {
+                row.addEventListener('pointerdown', e => {
+                    if (e.target.closest('.del')) return;
+                    if (e.pointerType === 'mouse' && e.button !== 0) return;
 
-            function renderImageList() {
-                imgListEl.innerHTML = '';
-                state.images.forEach((im, i) => {
-                    const row = document.createElement('div');
-                    row.className = 'thumb';
-                    row.draggable = true;
-                    row.dataset.id = im.id;
+                    const pointerId = e.pointerId;
+                    const startX = e.clientX, startY = e.clientY;
+                    const startRect = row.getBoundingClientRect();
+                    let started = false;
+                    let ghost = null;
 
-                    row.addEventListener('dragstart', e => {
-                        dragSrcId = im.id;
+                    function beginDrag() {
+                        started = true;
                         dragPreSnapshot = snapshotState();
-                        // let the browser grab its drag image before we style it as a placeholder
-                        requestAnimationFrame(() => row.classList.add('dragging'));
-                        e.dataTransfer.effectAllowed = 'move';
-                    });
-                    row.addEventListener('dragend', () => {
+                        document.body.classList.add('no-select');
+                        row.classList.add('dragging');
+                        ghost = row.cloneNode(true);
+                        ghost.classList.remove('dragging');
+                        ghost.classList.add('thumb-ghost');
+                        ghost.style.width = startRect.width + 'px';
+                        ghost.style.position = 'fixed';
+                        ghost.style.left = '0';
+                        ghost.style.top = '0';
+                        ghost.style.margin = '0';
+                        ghost.style.pointerEvents = 'none';
+                        ghost.style.transform = `translate(${startRect.left}px, ${startRect.top}px)`;
+                        document.body.appendChild(ghost);
+                    }
+
+                    function onMove(ev) {
+                        if (ev.pointerId !== pointerId) return;
+                        const dx = ev.clientX - startX, dy = ev.clientY - startY;
+                        if (!started) {
+                            if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+                            beginDrag();
+                        }
+                        ghost.style.transform = `translate(${startRect.left + dx}px, ${startRect.top + dy}px)`;
+                        const afterElement = getDragAfterElement(imgListEl, ev.clientY);
+                        if (afterElement == null) {
+                            imgListEl.appendChild(row);
+                        } else if (afterElement !== row) {
+                            imgListEl.insertBefore(row, afterElement);
+                        }
+                        refreshThumbIndices();
+                        const ghostIdx = ghost.querySelector('.idx');
+                        if (ghostIdx) ghostIdx.textContent = row.querySelector('.idx').textContent;
+                        // keep the list auto-scrolling into view while dragging near edges
+                        const listRect = imgListEl.getBoundingClientRect();
+                        const edge = 28;
+                        if (ev.clientY < listRect.top + edge) imgListEl.scrollTop -= 10;
+                        else if (ev.clientY > listRect.bottom - edge) imgListEl.scrollTop += 10;
+                    }
+
+                    function finish() {
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
+                        window.removeEventListener('pointercancel', onUp);
+                        if (!started) return;
+                        document.body.classList.remove('no-select');
                         row.classList.remove('dragging');
+                        if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
                         const newOrder = Array.from(imgListEl.querySelectorAll('.thumb')).map(r => parseInt(r.dataset.id, 10));
                         const oldOrder = state.images.map(x => x.id);
                         state.images.sort((a, b) => newOrder.indexOf(a.id) - newOrder.indexOf(b.id));
@@ -1323,9 +1375,26 @@
                             commitPending(dragPreSnapshot);
                         }
                         dragPreSnapshot = null;
-                        dragSrcId = null;
                         renderAll();
-                    });
+                    }
+                    function onUp(ev) {
+                        if (ev.pointerId !== pointerId) return;
+                        finish();
+                    }
+
+                    window.addEventListener('pointermove', onMove);
+                    window.addEventListener('pointerup', onUp);
+                    window.addEventListener('pointercancel', onUp);
+                });
+            }
+
+            function renderImageList() {
+                imgListEl.innerHTML = '';
+                state.images.forEach((im, i) => {
+                    const row = document.createElement('div');
+                    row.className = 'thumb';
+                    row.dataset.id = im.id;
+                    attachThumbDrag(row);
 
                     const thumb = document.createElement('img');
                     thumb.src = im.src;
