@@ -95,38 +95,76 @@
             color: var(--text-dim);
         }
 
-        .dropzone {
+        .add-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
             border: 1.5px dashed var(--border);
             border-radius: 10px;
-            padding: 16px 12px;
-            text-align: center;
-            color: var(--text-dim);
+            padding: 11px 12px;
+            background: transparent;
+            color: var(--text);
+            font-size: 13px;
+            font-weight: 700;
             cursor: pointer;
             transition: border-color .15s ease, background .15s ease, color .15s ease;
         }
 
-        .dropzone:hover {
-            border-color: #55506a;
-            color: var(--text);
+        .add-btn svg {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+            color: var(--accent);
         }
 
-        .dropzone.drag-over {
+        .add-btn:hover {
             border-color: var(--accent);
-            background: rgba(230, 72, 79, 0.08);
-            color: var(--text);
+            background: rgba(230, 72, 79, 0.06);
         }
 
-        .dropzone strong {
-            color: var(--text);
-            display: block;
-            margin-bottom: 3px;
-            font-size: 13px;
-        }
-
-        .dropzone small {
-            display: block;
-            margin-top: 3px;
+        .add-hint {
+            text-align: center;
             font-size: 11.5px;
+            color: var(--text-dim);
+            margin-top: 6px;
+        }
+
+        .drop-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(18, 17, 22, 0.88);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .12s ease;
+        }
+
+        .drop-overlay.show {
+            opacity: 1;
+        }
+
+        .drop-overlay-inner {
+            margin: 24px;
+            padding: 40px 56px;
+            border: 2.5px dashed var(--accent);
+            border-radius: 20px;
+            text-align: center;
+            color: var(--text);
+        }
+
+        .drop-overlay-inner .big {
+            font-size: 44px;
+            margin-bottom: 12px;
+        }
+
+        .drop-overlay-inner strong {
+            font-size: 17px;
+            display: block;
         }
 
         .seg {
@@ -611,6 +649,7 @@
             color: var(--text-dim);
             max-width: 300px;
             padding: 20px;
+            cursor: pointer;
         }
 
         .empty-state .big {
@@ -783,8 +822,8 @@
                 <div class="empty-state" id="emptyState">
                     <div class="big">🖼️</div>
                     <div class="empty-title">Nothing here yet</div>
-                    <div class="empty-desc">Drag screenshots or panels in, paste them, or use the browse button below to
-                        start building your layout.</div>
+                    <div class="empty-desc">Click to add images, drag them in from anywhere, or paste (Ctrl/Cmd+V).
+                    </div>
                 </div>
                 <div class="stage-outer" id="stageOuter" style="display:none;">
                     <div id="stage"></div>
@@ -802,19 +841,23 @@
             </div>
 
             <div class="section">
-                <div class="dropzone" id="dropzone">
-                    <strong>Drop images here</strong>
-                    or click to browse, or paste (Ctrl/Cmd+V) anywhere
-                    <small>PNG, JPG, WebP, GIF</small>
-                </div>
+                <button class="add-btn" id="addImagesBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    Add images
+                </button>
+                <div class="add-hint">or drag anywhere, or paste (Ctrl/Cmd+V)</div>
                 <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
             </div>
 
             <div class="section">
                 <div class="section-title">Direction</div>
                 <div class="seg" id="directionSeg">
-                    <button data-dir="row">Horizontal (rows)</button>
                     <button data-dir="column" class="active">Vertical (columns)</button>
+                    <button data-dir="row">Horizontal (rows)</button>
                 </div>
             </div>
 
@@ -871,6 +914,13 @@
 
     </div>
 
+    <div class="drop-overlay" id="dropOverlay">
+        <div class="drop-overlay-inner">
+            <div class="big">🖼️</div>
+            <strong>Drop to add images</strong>
+        </div>
+    </div>
+
     <div class="toast" id="toast">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
             stroke-linejoin="round">
@@ -895,8 +945,9 @@
             let dragPreSnapshot = null;
 
             const $ = sel => document.querySelector(sel);
-            const dropzone = $('#dropzone');
+            const addImagesBtn = $('#addImagesBtn');
             const fileInput = $('#fileInput');
+            const dropOverlay = $('#dropOverlay');
             const imgListEl = $('#imgList');
             const imgCountEl = $('#imgCount');
             const dimsInfo = $('#dimsInfo');
@@ -1035,25 +1086,34 @@
                 reader.readAsDataURL(file);
             }
 
-            dropzone.addEventListener('click', () => fileInput.click());
+            addImagesBtn.addEventListener('click', () => fileInput.click());
             fileInput.addEventListener('change', e => { addFiles(e.target.files); fileInput.value = ''; });
+            emptyState.addEventListener('click', () => fileInput.click());
 
-            ['dragenter', 'dragover'].forEach(evt => {
-                dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
-            });
-            ['dragleave', 'drop'].forEach(evt => {
-                dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove('drag-over'); });
-            });
-            dropzone.addEventListener('drop', e => {
+            // Whole-window drop target, with a full-screen overlay while a file drag is in progress.
+            // dragenter/dragleave fire repeatedly as the pointer crosses child elements, so a counter
+            // is used to know when the drag has truly left the window rather than just moved internally.
+            let dragDepth = 0;
+            function isFileDrag(e) {
+                return e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+            }
+            window.addEventListener('dragenter', e => {
+                if (!isFileDrag(e)) return;
                 e.preventDefault();
-                if (e.dataTransfer.files && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+                dragDepth++;
+                dropOverlay.classList.add('show');
             });
-            // Also allow dropping anywhere on the page, but only real files (not internal image drags)
-            document.addEventListener('dragover', e => e.preventDefault());
-            document.addEventListener('drop', e => {
+            window.addEventListener('dragover', e => { if (isFileDrag(e)) e.preventDefault(); });
+            window.addEventListener('dragleave', e => {
+                if (!isFileDrag(e)) return;
+                dragDepth = Math.max(0, dragDepth - 1);
+                if (dragDepth === 0) dropOverlay.classList.remove('show');
+            });
+            window.addEventListener('drop', e => {
+                if (e.target.closest('#stage')) return; // ignore drags originating from the preview itself
                 e.preventDefault();
-                if (e.target.closest('#dropzone')) return; // already handled
-                if (e.target.closest('#stage')) return; // ignore drags originating from the preview
+                dragDepth = 0;
+                dropOverlay.classList.remove('show');
                 if (e.dataTransfer.files && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
             });
 
