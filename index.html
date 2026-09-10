@@ -153,7 +153,7 @@
 
         .seg button.active {
             background: var(--accent);
-            color: var(--accent-text);
+            color: var(--text);
         }
 
         .seg button:not(.active):hover {
@@ -390,6 +390,7 @@
             background: var(--border);
             position: relative;
             z-index: 5;
+            touch-action: none;
         }
 
         .resizer:hover,
@@ -400,6 +401,16 @@
         .resizer-v {
             width: 5px;
             cursor: col-resize;
+        }
+
+        .resizer-v::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 17px;
         }
 
         .resizer-v::after {
@@ -419,6 +430,16 @@
             display: none;
             height: 14px;
             cursor: row-resize;
+        }
+
+        .resizer-h::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 26px;
         }
 
         .resizer-h::after {
@@ -678,7 +699,7 @@
             }
 
             .topbar .info {
-                display: none;
+                font-size: 11px;
             }
 
             .icon-btn span {
@@ -693,10 +714,6 @@
                 width: 17px;
                 height: 17px;
             }
-
-            .desktop-only {
-                display: none !important;
-            }
         }
     </style>
 </head>
@@ -709,15 +726,14 @@
             <div class="topbar">
                 <div class="info" id="dimsInfo"><b>0</b> images</div>
                 <div class="actions">
-                    <button class="icon-btn btn-secondary desktop-only" id="undoBtn" disabled title="Undo (Ctrl/Cmd+Z)">
+                    <button class="icon-btn btn-secondary" id="undoBtn" disabled title="Undo (Ctrl/Cmd+Z)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                             stroke-linecap="round" stroke-linejoin="round">
                             <path d="M9 14 4 9l5-5" />
                             <path d="M4 9h10.5A5.5 5.5 0 0 1 20 14.5v0a5.5 5.5 0 0 1-5.5 5.5H11" />
                         </svg>
                     </button>
-                    <button class="icon-btn btn-secondary desktop-only" id="redoBtn" disabled
-                        title="Redo (Ctrl/Cmd+Shift+Z)">
+                    <button class="icon-btn btn-secondary" id="redoBtn" disabled title="Redo (Ctrl/Cmd+Shift+Z)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                             stroke-linecap="round" stroke-linejoin="round">
                             <path d="m15 14 5-5-5-5" />
@@ -1143,13 +1159,15 @@
             function initResizer(handle, axis) {
                 handle.addEventListener('pointerdown', e => {
                     e.preventDefault();
-                    handle.setPointerCapture(e.pointerId);
+                    try { handle.setPointerCapture(e.pointerId); } catch (err) { }
                     handle.classList.add('active');
                     const startX = e.clientX, startY = e.clientY;
                     const startSidebarW = sidebar.getBoundingClientRect().width;
                     const startPreviewH = $('.main').getBoundingClientRect().height;
+                    let ended = false;
 
                     function onMove(ev) {
+                        if (ev.pointerId !== e.pointerId) return;
                         if (axis === 'v') {
                             const delta = ev.clientX - startX;
                             let w = startSidebarW - delta;
@@ -1164,14 +1182,20 @@
                         }
                         renderStage();
                     }
-                    function onUp(ev) {
-                        handle.releasePointerCapture(ev.pointerId);
+                    function onEnd(ev) {
+                        if (ended) return;
+                        ended = true;
+                        try { handle.releasePointerCapture(e.pointerId); } catch (err) { }
                         handle.classList.remove('active');
                         window.removeEventListener('pointermove', onMove);
-                        window.removeEventListener('pointerup', onUp);
+                        window.removeEventListener('pointerup', onEnd);
+                        window.removeEventListener('pointercancel', onEnd);
+                        handle.removeEventListener('lostpointercapture', onEnd);
                     }
                     window.addEventListener('pointermove', onMove);
-                    window.addEventListener('pointerup', onUp);
+                    window.addEventListener('pointerup', onEnd);
+                    window.addEventListener('pointercancel', onEnd);
+                    handle.addEventListener('lostpointercapture', onEnd);
                 });
             }
             initResizer(resizerV, 'v');
