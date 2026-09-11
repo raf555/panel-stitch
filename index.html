@@ -1392,6 +1392,7 @@
 
                     function beginDrag() {
                         started = true;
+                        row.style.touchAction = 'none';
                         try { row.setPointerCapture(pointerId); } catch (err) { }
                         dragPreSnapshot = snapshotState();
                         document.body.classList.add('no-select');
@@ -1436,6 +1437,7 @@
                             beginDrag();
                         }
 
+                        ev.preventDefault();
                         ghost.style.transform = `translate(${startRect.left + dx}px, ${startRect.top + dy}px)`;
                         const afterElement = getDragAfterElement(imgListEl, ev.clientY);
                         if (afterElement == null) {
@@ -1479,7 +1481,7 @@
                         window.removeEventListener('pointercancel', onUp);
                     }
 
-                    window.addEventListener('pointermove', onMove);
+                    window.addEventListener('pointermove', onMove, { passive: false });
                     window.addEventListener('pointerup', onUp);
                     window.addEventListener('pointercancel', onUp);
                 });
