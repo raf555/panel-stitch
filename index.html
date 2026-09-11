@@ -334,7 +334,7 @@
             border-radius: 8px;
             padding: 6px;
             cursor: grab;
-            touch-action: none;
+            touch-action: pan-y;
         }
 
         .thumb.dragging {
@@ -599,6 +599,10 @@
             justify-content: center;
             padding: 28px;
             min-height: 0;
+        }
+
+        .canvas-wrap.empty {
+            cursor: pointer;
         }
 
         .stage-outer {
@@ -1088,7 +1092,9 @@
 
             addImagesBtn.addEventListener('click', () => fileInput.click());
             fileInput.addEventListener('change', e => { addFiles(e.target.files); fileInput.value = ''; });
-            emptyState.addEventListener('click', () => fileInput.click());
+            canvasWrap.addEventListener('click', () => {
+                if (state.images.length === 0) fileInput.click();
+            });
 
             // Whole-window drop target, with a full-screen overlay while a file drag is in progress.
             // dragenter/dragleave fire repeatedly as the pointer crosses child elements, so a counter
@@ -1367,19 +1373,26 @@
                 });
             }
 
+            const LONG_PRESS_MS = 380;
+            const MOVE_TOLERANCE = 10;
+
             function attachThumbDrag(row) {
                 row.addEventListener('pointerdown', e => {
                     if (e.target.closest('.del')) return;
                     if (e.pointerType === 'mouse' && e.button !== 0) return;
 
                     const pointerId = e.pointerId;
+                    const isTouch = e.pointerType === 'touch' || e.pointerType === 'pen';
                     const startX = e.clientX, startY = e.clientY;
                     const startRect = row.getBoundingClientRect();
                     let started = false;
+                    let cancelled = false;
                     let ghost = null;
+                    let longPressTimer = null;
 
                     function beginDrag() {
                         started = true;
+                        try { row.setPointerCapture(pointerId); } catch (err) { }
                         dragPreSnapshot = snapshotState();
                         document.body.classList.add('no-select');
                         row.classList.add('dragging');
@@ -1396,13 +1409,33 @@
                         document.body.appendChild(ghost);
                     }
 
+                    if (isTouch) {
+                        longPressTimer = setTimeout(() => {
+                            longPressTimer = null;
+                            if (!cancelled) beginDrag();
+                        }, LONG_PRESS_MS);
+                    }
+
                     function onMove(ev) {
                         if (ev.pointerId !== pointerId) return;
                         const dx = ev.clientX - startX, dy = ev.clientY - startY;
+
                         if (!started) {
+                            if (isTouch) {
+                                // Moved too far before the long-press fired: this is a scroll, not a drag.
+                                // Bail out and let the browser's native scrolling handle it.
+                                if (!cancelled && (Math.abs(dx) > MOVE_TOLERANCE || Math.abs(dy) > MOVE_TOLERANCE)) {
+                                    cancelled = true;
+                                    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+                                    cleanup();
+                                }
+                                return;
+                            }
+                            // mouse: start immediately past a small threshold
                             if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
                             beginDrag();
                         }
+
                         ghost.style.transform = `translate(${startRect.left + dx}px, ${startRect.top + dy}px)`;
                         const afterElement = getDragAfterElement(imgListEl, ev.clientY);
                         if (afterElement == null) {
@@ -1421,9 +1454,8 @@
                     }
 
                     function finish() {
-                        window.removeEventListener('pointermove', onMove);
-                        window.removeEventListener('pointerup', onUp);
-                        window.removeEventListener('pointercancel', onUp);
+                        cleanup();
+                        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
                         if (!started) return;
                         document.body.classList.remove('no-select');
                         row.classList.remove('dragging');
@@ -1440,6 +1472,11 @@
                     function onUp(ev) {
                         if (ev.pointerId !== pointerId) return;
                         finish();
+                    }
+                    function cleanup() {
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
+                        window.removeEventListener('pointercancel', onUp);
                     }
 
                     window.addEventListener('pointermove', onMove);
@@ -1490,6 +1527,7 @@
                 if (state.images.length === 0) {
                     emptyState.style.display = 'flex';
                     stageOuter.style.display = 'none';
+                    canvasWrap.classList.add('empty');
                     downloadBtn.disabled = true;
                     copyBtn.disabled = true;
                     dimsInfo.innerHTML = `<b>0</b> images`;
@@ -1498,6 +1536,7 @@
 
                 emptyState.style.display = 'none';
                 stageOuter.style.display = 'block';
+                canvasWrap.classList.remove('empty');
                 downloadBtn.disabled = false;
                 copyBtn.disabled = false;
 
