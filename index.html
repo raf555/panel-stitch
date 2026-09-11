@@ -334,7 +334,7 @@
             border-radius: 8px;
             padding: 6px;
             cursor: grab;
-            touch-action: pan-y;
+            touch-action: none;
         }
 
         .thumb.dragging {
@@ -1385,14 +1385,13 @@
                     const isTouch = e.pointerType === 'touch' || e.pointerType === 'pen';
                     const startX = e.clientX, startY = e.clientY;
                     const startRect = row.getBoundingClientRect();
-                    let started = false;
-                    let cancelled = false;
+                    let mode = 'pending'; // 'pending' -> 'dragging' | 'scrolling'
                     let ghost = null;
                     let longPressTimer = null;
+                    let lastY = startY;
 
                     function beginDrag() {
-                        started = true;
-                        row.style.touchAction = 'none';
+                        mode = 'dragging';
                         try { row.setPointerCapture(pointerId); } catch (err) { }
                         dragPreSnapshot = snapshotState();
                         document.body.classList.add('no-select');
@@ -1413,7 +1412,7 @@
                     if (isTouch) {
                         longPressTimer = setTimeout(() => {
                             longPressTimer = null;
-                            if (!cancelled) beginDrag();
+                            if (mode === 'pending') beginDrag();
                         }, LONG_PRESS_MS);
                     }
 
@@ -1421,14 +1420,15 @@
                         if (ev.pointerId !== pointerId) return;
                         const dx = ev.clientX - startX, dy = ev.clientY - startY;
 
-                        if (!started) {
+                        if (mode === 'pending') {
                             if (isTouch) {
-                                // Moved too far before the long-press fired: this is a scroll, not a drag.
-                                // Bail out and let the browser's native scrolling handle it.
-                                if (!cancelled && (Math.abs(dx) > MOVE_TOLERANCE || Math.abs(dy) > MOVE_TOLERANCE)) {
-                                    cancelled = true;
+                                // Moved before the long-press fired: this is a scroll, not a drag.
+                                // touch-action is 'none' here, so we drive the scroll ourselves in JS
+                                // instead of racing the browser's native handoff (which can't be won).
+                                if (Math.abs(dx) > MOVE_TOLERANCE || Math.abs(dy) > MOVE_TOLERANCE) {
+                                    mode = 'scrolling';
                                     if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-                                    cleanup();
+                                    lastY = ev.clientY;
                                 }
                                 return;
                             }
@@ -1437,6 +1437,14 @@
                             beginDrag();
                         }
 
+                        if (mode === 'scrolling') {
+                            ev.preventDefault();
+                            imgListEl.scrollTop -= (ev.clientY - lastY);
+                            lastY = ev.clientY;
+                            return;
+                        }
+
+                        // mode === 'dragging'
                         ev.preventDefault();
                         ghost.style.transform = `translate(${startRect.left + dx}px, ${startRect.top + dy}px)`;
                         const afterElement = getDragAfterElement(imgListEl, ev.clientY);
@@ -1458,7 +1466,7 @@
                     function finish() {
                         cleanup();
                         if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-                        if (!started) return;
+                        if (mode !== 'dragging') return;
                         document.body.classList.remove('no-select');
                         row.classList.remove('dragging');
                         if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
