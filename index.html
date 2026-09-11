@@ -926,8 +926,8 @@
     </div>
 
     <div class="toast" id="toast">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-            stroke-linejoin="round">
+        <svg id="toastIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
             <polyline points="20 6 9 17 4 12" />
         </svg>
         <span id="toastMsg">Done</span>
@@ -963,9 +963,13 @@
             const canvasWrap = $('#canvasWrap');
             const toast = $('#toast');
             const toastMsg = $('#toastMsg');
+            const toastIcon = $('#toastIcon');
+            const CHECK_ICON = '<polyline points="20 6 9 17 4 12"/>';
+            const CROSS_ICON = '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
 
             function showToast(msg, isError) {
                 toastMsg.textContent = msg;
+                toastIcon.innerHTML = isError ? CROSS_ICON : CHECK_ICON;
                 toast.classList.toggle('error', !!isError);
                 toast.classList.add('show');
                 clearTimeout(showToast._t);
@@ -1056,13 +1060,19 @@
 
             document.addEventListener('keydown', e => {
                 const tag = e.target.tagName;
-                if (tag === 'INPUT' || tag === 'TEXTAREA') return; // let native undo work in text fields
+                if (tag === 'INPUT' || tag === 'TEXTAREA') return; // let native shortcuts work in text fields
                 const mod = e.ctrlKey || e.metaKey;
                 if (!mod) return;
                 const key = e.key.toLowerCase();
                 if (key === 'z' && e.shiftKey) { e.preventDefault(); redo(); }
                 else if (key === 'z') { e.preventDefault(); undo(); }
                 else if (key === 'y') { e.preventDefault(); redo(); }
+                else if (key === 's') { e.preventDefault(); triggerDownload(); }
+                else if (key === 'c') {
+                    if (window.getSelection && String(window.getSelection())) return; // let normal text copy through
+                    e.preventDefault();
+                    triggerCopy();
+                }
             });
 
             // ---------- Adding images ----------
@@ -1625,8 +1635,10 @@
                 });
             }
 
-            downloadBtn.addEventListener('click', () => {
+            function triggerDownload() {
+                if (downloadBtn.disabled) return;
                 downloadBtn.disabled = true;
+                showToast('Preparing download…');
                 buildCanvas(canvas => {
                     downloadBtn.disabled = false;
                     const link = document.createElement('a');
@@ -1635,9 +1647,10 @@
                     link.click();
                     showToast('Image downloaded');
                 });
-            });
+            }
 
-            copyBtn.addEventListener('click', () => {
+            function triggerCopy() {
+                if (copyBtn.disabled) return;
                 if (!navigator.clipboard || !window.ClipboardItem) {
                     showToast('Copy not supported in this browser — use Download instead', true);
                     return;
@@ -1649,10 +1662,13 @@
                         if (!blob) { showToast('Could not copy image', true); return; }
                         navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
                             .then(() => showToast('Image copied to clipboard'))
-                            .catch(() => showToast('Copy failed — use Download instead', true));
+                            .catch(() => showToast('Copy failed! Use Download instead', true));
                     }, 'image/png');
                 });
-            });
+            }
+
+            downloadBtn.addEventListener('click', triggerDownload);
+            copyBtn.addEventListener('click', triggerCopy);
 
             renderAll();
         })();
