@@ -1314,21 +1314,28 @@
                     const rows = [];
                     for (let i = 0; i < imgs.length; i += C) rows.push(imgs.slice(i, i + C));
 
-                    let y = pad;
+                    let yFloat = pad;
                     rows.forEach(row => {
                         const heights = row.map(im => colW * (im.naturalH / im.naturalW));
                         const rowH = Math.max(...heights);
                         const rowContentW = row.length * colW + gap * (row.length - 1);
-                        let x = pad + (W - pad * 2 - rowContentW) / 2;
+                        let xFloat = pad + (W - pad * 2 - rowContentW) / 2;
+
                         row.forEach((im, i) => {
                             const h = heights[i];
                             const yOff = (rowH - h) / 2;
-                            items.push({ x, y: y + yOff, w: colW, h, src: im.src });
-                            x += colW + gap;
+                            // Round each edge independently (not width/height directly) so that
+                            // adjacent items always share an identical pixel boundary when gap is 0.
+                            const xStart = Math.round(xFloat);
+                            const xEnd = Math.round(xFloat + colW);
+                            const yStart = Math.round(yFloat + yOff);
+                            const yEnd = Math.round(yFloat + yOff + h);
+                            items.push({ x: xStart, y: yStart, w: xEnd - xStart, h: yEnd - yStart, src: im.src });
+                            xFloat += colW + gap;
                         });
-                        y += rowH + gap;
+                        yFloat += rowH + gap;
                     });
-                    const totalH = y - gap + pad;
+                    const totalH = Math.round(yFloat - gap + pad);
                     return { width: W, height: totalH, items };
 
                 } else {
@@ -1344,14 +1351,18 @@
                     }
                     let maxColH = 0;
                     chunks.forEach((chunk, c) => {
-                        const x = pad + c * (colW + gap);
-                        let y = pad;
+                        const xStart = Math.round(pad + c * (colW + gap));
+                        const xEnd = Math.round(pad + c * (colW + gap) + colW);
+                        const width = xEnd - xStart;
+                        let yFloat = pad;
                         chunk.forEach(im => {
-                            const h = colW * (im.naturalH / im.naturalW);
-                            items.push({ x, y, w: colW, h, src: im.src });
-                            y += h + gap;
+                            const h = width * (im.naturalH / im.naturalW);
+                            const yStart = Math.round(yFloat);
+                            const yEnd = Math.round(yFloat + h);
+                            items.push({ x: xStart, y: yStart, w: width, h: yEnd - yStart, src: im.src });
+                            yFloat += h + gap;
                         });
-                        const colH = y - gap + pad;
+                        const colH = Math.round(yFloat - gap + pad);
                         if (colH > maxColH) maxColH = colH;
                     });
                     return { width: W, height: Math.max(maxColH, pad * 2), items };
