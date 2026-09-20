@@ -711,6 +711,132 @@
             color: var(--accent);
         }
 
+        .restore-banner {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100%);
+            background: var(--bg-raised-2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px 12px 10px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            box-shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+            z-index: 60;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            opacity: 0;
+            transition: opacity .18s ease, transform .18s ease;
+            pointer-events: none;
+            max-width: calc(100vw - 32px);
+        }
+
+        .restore-banner.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+            pointer-events: auto;
+        }
+
+        .restore-banner-text {
+            color: var(--text-dim);
+            white-space: nowrap;
+        }
+
+        .restore-banner-actions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .btn-primary-sm,
+        .btn-ghost-sm {
+            border: none;
+            border-radius: 7px;
+            padding: 7px 12px;
+            font-size: 12.5px;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .btn-primary-sm {
+            background: var(--accent);
+            color: var(--text);
+        }
+
+        .btn-primary-sm:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn-ghost-sm {
+            background: transparent;
+            color: var(--text-dim);
+            border: 1px solid var(--border);
+        }
+
+        .btn-ghost-sm:hover {
+            color: var(--text);
+            border-color: #55506a;
+        }
+
+        .restore-banner-close {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            border: none;
+            background: transparent;
+            color: var(--text-dim);
+            border-radius: 6px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .restore-banner-close svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .restore-banner-close:hover {
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        @media (max-width: 560px) {
+            .restore-banner {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+                left: 16px;
+                right: 16px;
+                transform: translateY(100%);
+                margin-left: 0;
+                padding-right: 34px;
+            }
+
+            .restore-banner.show {
+                transform: translateY(0);
+            }
+
+            .restore-banner-text {
+                white-space: normal;
+                text-align: center;
+            }
+
+            .restore-banner-actions {
+                justify-content: center;
+            }
+
+            .restore-banner-close {
+                position: absolute;
+                top: 8px;
+                right: 8px;
+            }
+        }
+
         ::-webkit-scrollbar {
             width: 9px;
             height: 9px;
@@ -925,6 +1051,21 @@
         </div>
     </div>
 
+    <div class="restore-banner" id="restoreBanner">
+        <span class="restore-banner-text">You have a previous session saved.</span>
+        <div class="restore-banner-actions">
+            <button class="btn btn-primary-sm" id="restoreBtn">Restore</button>
+            <button class="btn btn-ghost-sm" id="newSessionBtn">New Session</button>
+            <button class="restore-banner-close" id="restoreCloseBtn" title="Dismiss" aria-label="Dismiss">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
     <div class="toast" id="toast">
         <svg id="toastIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
@@ -947,6 +1088,80 @@
             };
             let idCounter = 0;
             let dragPreSnapshot = null;
+
+            // ---------- Autosave (IndexedDB) ----------
+            // localStorage's ~5-10MB quota is too small for multiple base64 images,
+            // so we use IndexedDB instead, which has a much higher ceiling.
+            const DB_NAME = 'panel-stitch';
+            const STORE_NAME = 'autosave';
+            const AUTOSAVE_KEY = 'current';
+            let dbPromise = null;
+
+            function openDB() {
+                if (dbPromise) return dbPromise;
+                dbPromise = new Promise((resolve, reject) => {
+                    const req = indexedDB.open(DB_NAME, 1);
+                    req.onupgradeneeded = () => {
+                        req.result.createObjectStore(STORE_NAME);
+                    };
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                });
+                return dbPromise;
+            }
+
+            function saveAutosave(snapshotObj) {
+                return openDB().then(db => new Promise((resolve, reject) => {
+                    const tx = db.transaction(STORE_NAME, 'readwrite');
+                    tx.objectStore(STORE_NAME).put(snapshotObj, AUTOSAVE_KEY);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                })).catch(err => {
+                    console.warn('Autosave failed:', err);
+                });
+            }
+
+            function loadAutosave() {
+                return openDB().then(db => new Promise((resolve, reject) => {
+                    const tx = db.transaction(STORE_NAME, 'readonly');
+                    const req = tx.objectStore(STORE_NAME).get(AUTOSAVE_KEY);
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => reject(req.error);
+                })).catch(err => {
+                    console.warn('Autosave load failed:', err);
+                    return null;
+                });
+            }
+
+            function clearAutosave() {
+                return openDB().then(db => new Promise((resolve, reject) => {
+                    const tx = db.transaction(STORE_NAME, 'readwrite');
+                    tx.objectStore(STORE_NAME).delete(AUTOSAVE_KEY);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                })).catch(err => {
+                    console.warn('Autosave clear failed:', err);
+                });
+            }
+
+            let autosaveTimer = null;
+            let restoreDecisionPending = false;
+            function scheduleAutosave() {
+                if (restoreDecisionPending) return;
+                clearTimeout(autosaveTimer);
+                autosaveTimer = setTimeout(() => {
+                    saveAutosave({
+                        images: state.images,
+                        direction: state.direction,
+                        columns: state.columns,
+                        canvasWidth: state.canvasWidth,
+                        gap: state.gap,
+                        padding: state.padding,
+                        bg: state.bg,
+                        bgTransparent: state.bgTransparent,
+                    });
+                }, 800);
+            }
 
             const $ = sel => document.querySelector(sel);
             const addImagesBtn = $('#addImagesBtn');
@@ -1086,6 +1301,7 @@
                 reader.onload = e => {
                     const img = new Image();
                     img.onload = () => {
+                        dismissRestoreAsNewSession();
                         pushUndo();
                         state.images.push({
                             id: ++idCounter,
@@ -1373,6 +1589,7 @@
             function renderAll() {
                 renderImageList();
                 renderStage();
+                scheduleAutosave();
             }
 
             function getDragAfterElement(container, y) {
@@ -1681,7 +1898,56 @@
             downloadBtn.addEventListener('click', triggerDownload);
             copyBtn.addEventListener('click', triggerCopy);
 
-            renderAll();
+            const restoreBanner = $('#restoreBanner');
+            const restoreBtn = $('#restoreBtn');
+            const newSessionBtn = $('#newSessionBtn');
+            const restoreCloseBtn = $('#restoreCloseBtn');
+
+            function applyRestoredState(saved) {
+                state.images = saved.images;
+                state.direction = saved.direction ?? state.direction;
+                state.columns = saved.columns ?? state.columns;
+                state.canvasWidth = saved.canvasWidth ?? state.canvasWidth;
+                state.gap = saved.gap ?? state.gap;
+                state.padding = saved.padding ?? state.padding;
+                state.bg = saved.bg ?? state.bg;
+                state.bgTransparent = saved.bgTransparent ?? state.bgTransparent;
+                syncControlsFromState();
+                renderAll();
+            }
+
+            function hideRestoreBanner() {
+                restoreBanner.classList.remove('show');
+            }
+
+            function dismissRestoreAsNewSession() {
+                if (!restoreDecisionPending) return;
+                restoreDecisionPending = false;
+                clearAutosave();
+                hideRestoreBanner();
+                scheduleAutosave();
+            }
+
+            loadAutosave().then(saved => {
+                if (saved && Array.isArray(saved.images) && saved.images.length > 0) {
+                    restoreDecisionPending = true;
+                }
+                renderAll();
+                if (saved && Array.isArray(saved.images) && saved.images.length > 0) {
+                    restoreBanner.classList.add('show');
+                    restoreBtn.addEventListener('click', () => {
+                        restoreDecisionPending = false;
+                        applyRestoredState(saved);
+                        hideRestoreBanner();
+                        showToast('Session restored');
+                    });
+                    newSessionBtn.addEventListener('click', dismissRestoreAsNewSession);
+                    restoreCloseBtn.addEventListener('click', () => {
+                        restoreDecisionPending = false;
+                        hideRestoreBanner();
+                    });
+                }
+            });
         })();
     </script>
 </body>
