@@ -1001,15 +1001,6 @@
                     </div>
                 </div>
                 <div class="row">
-                    <label>Canvas width</label>
-                    <div class="stepper">
-                        <button id="widthMinus">−</button>
-                        <input type="number" id="widthInput" value="1080" min="200" max="4000" step="10"
-                            style="width:52px;">
-                        <button id="widthPlus">+</button>
-                    </div>
-                </div>
-                <div class="row">
                     <label for="gapInput">Gap</label>
                     <input type="range" id="gapInput" min="0" max="60" value="0">
                     <span class="val" id="gapVal">0px</span>
@@ -1080,7 +1071,6 @@
                 images: [], // {id, src, naturalW, naturalH}
                 direction: 'column',
                 columns: 1,
-                canvasWidth: 1080,
                 gap: 0,
                 padding: 0,
                 bg: '#ffffff',
@@ -1154,7 +1144,6 @@
                         images: state.images,
                         direction: state.direction,
                         columns: state.columns,
-                        canvasWidth: state.canvasWidth,
                         gap: state.gap,
                         padding: state.padding,
                         bg: state.bg,
@@ -1203,7 +1192,6 @@
                     images: state.images,
                     direction: state.direction,
                     columns: state.columns,
-                    canvasWidth: state.canvasWidth,
                     gap: state.gap,
                     padding: state.padding,
                     bg: state.bg,
@@ -1226,7 +1214,6 @@
             function syncControlsFromState() {
                 document.querySelectorAll('#directionSeg button').forEach(b => b.classList.toggle('active', b.dataset.dir === state.direction));
                 colInput.value = state.columns;
-                widthInput.value = state.canvasWidth;
                 gapInput.value = state.gap; gapVal.textContent = state.gap + 'px';
                 padInput.value = state.padding; padVal.textContent = state.padding + 'px';
                 $('#bgColor').value = state.bgTransparent ? $('#bgColor').value : state.bg;
@@ -1241,7 +1228,6 @@
                 state.images = snap.images;
                 state.direction = snap.direction;
                 state.columns = snap.columns;
-                state.canvasWidth = snap.canvasWidth;
                 state.gap = snap.gap;
                 state.padding = snap.padding;
                 state.bg = snap.bg;
@@ -1386,24 +1372,6 @@
             $('#colMinus').addEventListener('click', () => { pushUndo(); setColumns(state.columns - 1); });
             $('#colPlus').addEventListener('click', () => { pushUndo(); setColumns(state.columns + 1); });
 
-            const widthInput = $('#widthInput');
-            function setWidth(v) {
-                v = Math.max(200, Math.min(4000, v));
-                state.canvasWidth = v;
-                widthInput.value = v;
-                renderStage();
-            }
-            widthInput.addEventListener('focus', () => { widthInput.dataset.preSnapshot = snapshotState(); });
-            widthInput.addEventListener('input', function () {
-                const v = parseInt(this.value);
-                if (!isNaN(v) && v > 0) setWidth(v);
-            });
-            widthInput.addEventListener('change', () => {
-                if (widthInput.dataset.preSnapshot) { commitPending(widthInput.dataset.preSnapshot); delete widthInput.dataset.preSnapshot; }
-            });
-            $('#widthMinus').addEventListener('click', () => { pushUndo(); setWidth(state.canvasWidth - 20); });
-            $('#widthPlus').addEventListener('click', () => { pushUndo(); setWidth(state.canvasWidth + 20); });
-
             function commitPending(preSnapshot) {
                 undoStack.push(preSnapshot);
                 if (undoStack.length > MAX_HISTORY) undoStack.shift();
@@ -1520,39 +1488,34 @@
                 const C = Math.max(1, state.columns);
                 const gap = state.gap;
                 const pad = state.padding;
-                const W = state.canvasWidth;
-                const colW = (W - pad * 2 - gap * (C - 1)) / C;
                 const items = [];
 
-                if (imgs.length === 0) return { width: W, height: 0, items: [] };
+                if (imgs.length === 0) return { width: 0, height: 0, items: [] };
 
                 if (state.direction === 'row') {
                     const rows = [];
                     for (let i = 0; i < imgs.length; i += C) rows.push(imgs.slice(i, i + C));
 
                     let yFloat = pad;
+                    let maxRowW = 0;
                     rows.forEach(row => {
-                        const heights = row.map(im => colW * (im.naturalH / im.naturalW));
-                        const rowH = Math.max(...heights);
-                        const rowContentW = row.length * colW + gap * (row.length - 1);
-                        let xFloat = pad + (W - pad * 2 - rowContentW) / 2;
-
-                        row.forEach((im, i) => {
-                            const h = heights[i];
-                            const yOff = (rowH - h) / 2;
-                            // Round each edge independently (not width/height directly) so that
-                            // adjacent items always share an identical pixel boundary when gap is 0.
+                        const rowH = Math.max(...row.map(im => im.naturalH));
+                        const yStart = Math.round(yFloat);
+                        const yEnd = Math.round(yFloat + rowH);
+                        let xFloat = pad;
+                        row.forEach(im => {
+                            const w = im.naturalW * (rowH / im.naturalH);
                             const xStart = Math.round(xFloat);
-                            const xEnd = Math.round(xFloat + colW);
-                            const yStart = Math.round(yFloat + yOff);
-                            const yEnd = Math.round(yFloat + yOff + h);
+                            const xEnd = Math.round(xFloat + w);
                             items.push({ x: xStart, y: yStart, w: xEnd - xStart, h: yEnd - yStart, src: im.src });
-                            xFloat += colW + gap;
+                            xFloat += w + gap;
                         });
+                        const rowW = Math.round(xFloat - gap + pad);
+                        if (rowW > maxRowW) maxRowW = rowW;
                         yFloat += rowH + gap;
                     });
                     const totalH = Math.round(yFloat - gap + pad);
-                    return { width: W, height: totalH, items };
+                    return { width: maxRowW, height: totalH, items };
 
                 } else {
                     const n = imgs.length;
@@ -1565,23 +1528,26 @@
                         chunks.push(imgs.slice(idx, idx + size));
                         idx += size;
                     }
+                    let xFloat = pad;
                     let maxColH = 0;
-                    chunks.forEach((chunk, c) => {
-                        const xStart = Math.round(pad + c * (colW + gap));
-                        const xEnd = Math.round(pad + c * (colW + gap) + colW);
-                        const width = xEnd - xStart;
+                    chunks.forEach(chunk => {
+                        const colW = Math.max(...chunk.map(im => im.naturalW));
+                        const xStart = Math.round(xFloat);
+                        const xEnd = Math.round(xFloat + colW);
                         let yFloat = pad;
                         chunk.forEach(im => {
-                            const h = width * (im.naturalH / im.naturalW);
+                            const h = im.naturalH * (colW / im.naturalW);
                             const yStart = Math.round(yFloat);
                             const yEnd = Math.round(yFloat + h);
-                            items.push({ x: xStart, y: yStart, w: width, h: yEnd - yStart, src: im.src });
+                            items.push({ x: xStart, y: yStart, w: xEnd - xStart, h: yEnd - yStart, src: im.src });
                             yFloat += h + gap;
                         });
                         const colH = Math.round(yFloat - gap + pad);
                         if (colH > maxColH) maxColH = colH;
+                        xFloat += colW + gap;
                     });
-                    return { width: W, height: Math.max(maxColH, pad * 2), items };
+                    const totalW = Math.round(xFloat - gap + pad);
+                    return { width: totalW, height: maxColH, items };
                 }
             }
 
@@ -1907,7 +1873,6 @@
                 state.images = saved.images;
                 state.direction = saved.direction ?? state.direction;
                 state.columns = saved.columns ?? state.columns;
-                state.canvasWidth = saved.canvasWidth ?? state.canvasWidth;
                 state.gap = saved.gap ?? state.gap;
                 state.padding = saved.padding ?? state.padding;
                 state.bg = saved.bg ?? state.bg;
