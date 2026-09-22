@@ -2,27 +2,44 @@ name: Build and Deploy K8s
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.ref.outputs.image_tag }}
+    steps:
+      - id: ref
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            echo "image_tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "image_tag=${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: prepare
     uses: raf555/actions/.github/workflows/build-ghcr.yaml@v1
     permissions:
       contents: read
       packages: write
     with:
       image_name: "panel-stitch"
-      tag: ${{ github.ref_name }}
+      tag: ${{ needs.prepare.outputs.image_tag }}
     secrets: inherit
 
   deploy:
-    needs: build
+    needs: [prepare, build]
     uses: raf555/actions/.github/workflows/deploy.yaml@v1
     permissions:
       contents: read
     with:
       image_name: panel-stitch
-      tag: ${{ github.ref_name }}
+      tag: ${{ needs.prepare.outputs.image_tag }}
       path: 'apps/panel-stitch'
     secrets: inherit
