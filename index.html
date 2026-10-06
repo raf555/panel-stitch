@@ -198,6 +198,106 @@
             color: var(--text);
         }
 
+        .accordion-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            background: var(--bg-raised-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 9px 10px;
+            cursor: pointer;
+            text-align: left;
+            transition: border-color .12s ease;
+        }
+
+        .accordion-header:hover {
+            border-color: #55506a;
+        }
+
+        .accordion-current {
+            flex: 1;
+            min-width: 0;
+            color: var(--text);
+            font-size: 12.5px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: right;
+        }
+
+        .accordion-chevron {
+            width: 15px;
+            height: 15px;
+            color: var(--text-dim);
+            flex-shrink: 0;
+            transition: transform .15s ease;
+        }
+
+        .accordion-header.open .accordion-chevron {
+            transform: rotate(180deg);
+        }
+
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .template-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            background: var(--bg-raised-2);
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 6px;
+            cursor: pointer;
+            transition: border-color .12s ease, background .12s ease;
+        }
+
+        .template-card:hover {
+            border-color: #55506a;
+        }
+
+        .template-card.active {
+            border-color: var(--accent);
+            background: rgba(230, 72, 79, 0.08);
+        }
+
+        .template-card-preview {
+            position: relative;
+            width: 44px;
+            height: 44px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .template-card-box {
+            position: absolute;
+            background: var(--text-dim);
+        }
+
+        .template-card.active .template-card-box {
+            background: var(--accent);
+        }
+
+        .template-card-label {
+            font-size: 10px;
+            color: var(--text-dim);
+            text-align: center;
+            line-height: 1.2;
+        }
+
+        .template-card.active .template-card-label {
+            color: var(--text);
+        }
+
         .row {
             display: flex;
             align-items: center;
@@ -231,6 +331,34 @@
         input[type="range"] {
             flex: 1;
             accent-color: var(--accent);
+        }
+
+        .aspect-select {
+            width: 100%;
+            background: var(--bg-raised-2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 7px;
+            padding: 8px 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239c97ab' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 16px;
+        }
+
+        .aspect-select:hover {
+            border-color: #55506a;
+        }
+
+        .aspect-select:focus {
+            outline: none;
+            border-color: var(--accent);
         }
 
         input[type="color"] {
@@ -644,6 +772,41 @@
             pointer-events: none;
         }
 
+        .template-box {
+            position: absolute;
+            overflow: hidden;
+            background-repeat: no-repeat;
+            cursor: grab;
+            touch-action: none;
+        }
+
+        .template-box.panning {
+            cursor: grabbing;
+        }
+
+        .template-box-empty {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1.5px dashed var(--border);
+            background: rgba(255, 255, 255, 0.02);
+            cursor: pointer;
+            color: var(--text-dim);
+            transition: border-color .12s ease, color .12s ease, background .12s ease;
+        }
+
+        .template-box-empty:hover {
+            border-color: var(--accent);
+            color: var(--text);
+            background: rgba(230, 72, 79, 0.06);
+        }
+
+        .template-box-empty svg {
+            width: 28px;
+            height: 28px;
+        }
+
         .empty-state {
             margin: auto;
             display: flex;
@@ -984,14 +1147,19 @@
             </div>
 
             <div class="section">
+                <div class="section-title">Layout</div>
+                <div class="seg" id="layoutModeSeg">
+                    <button data-mode="auto" class="active">Auto-Stitch</button>
+                    <button data-mode="template">Template</button>
+                </div>
+            </div>
+
+            <div class="section" id="autoModeSection">
                 <div class="section-title">Direction</div>
                 <div class="seg" id="directionSeg">
                     <button data-dir="column" class="active">Vertical (columns)</button>
                     <button data-dir="row">Horizontal (rows)</button>
                 </div>
-            </div>
-
-            <div class="section">
                 <div class="row">
                     <label>Columns</label>
                     <div class="stepper">
@@ -1000,6 +1168,40 @@
                         <button id="colPlus">+</button>
                     </div>
                 </div>
+            </div>
+
+            <div class="section" id="templateModeSection" style="display:none;">
+                <button class="accordion-header" id="templateAccordionToggle" type="button">
+                    <span class="section-title" style="margin-bottom:0;">Template</span>
+                    <span class="accordion-current" id="templateCurrentLabel">1 Image</span>
+                    <svg class="accordion-chevron" id="templateAccordionChevron" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                </button>
+                <div class="template-grid" id="templateGrid" style="display:none;"></div>
+                <div class="section-title" style="margin-top:4px;">Aspect Ratio</div>
+                <select id="aspectSelect" class="aspect-select"></select>
+                <div class="row" id="customAspectRow" style="display:none;">
+                    <label>Custom (W:H)</label>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <input type="number" id="aspectW" min="1" max="100" value="1" style="width:48px;">
+                        <span style="color:var(--text-dim);">:</span>
+                        <input type="number" id="aspectH" min="1" max="100" value="1" style="width:48px;">
+                    </div>
+                </div>
+                <div class="row">
+                    <label>Output width</label>
+                    <div class="stepper">
+                        <button id="outWidthMinus">−</button>
+                        <input type="number" id="outWidthInput" value="1080" min="200" max="4000" step="10"
+                            style="width:52px;">
+                        <button id="outWidthPlus">+</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
                 <div class="row">
                     <label for="gapInput">Gap</label>
                     <input type="range" id="gapInput" min="0" max="60" value="0">
@@ -1075,9 +1277,148 @@
                 padding: 0,
                 bg: '#ffffff',
                 bgTransparent: false,
+                layoutMode: 'auto', // 'auto' | 'template'
+                templateId: 'single',
+                aspectRatio: { w: 1, h: 1 },
+                outputWidth: 1080,
+                // Which image sits in which template box is derived live from
+                // state.images order (box i -> images[i]) — reordering the Images
+                // list is how panel assignment is controlled, not the canvas itself.
+                crops: {}, // per-image (keyed by image id): { offsetX, offsetY, zoom } — offsetX/Y are 0-1 pan center, zoom >= 1
             };
             let idCounter = 0;
             let dragPreSnapshot = null;
+
+            // ---------- Templates (fractional box geometry, 0-1 relative to canvas) ----------
+            const TEMPLATES = [
+                {
+                    id: 'single', name: '1 Image', boxes: [
+                        { x: 0, y: 0, w: 1, h: 1 },
+                    ]
+                },
+                {
+                    id: '2-side', name: '2 Side by Side', boxes: [
+                        { x: 0, y: 0, w: 0.5, h: 1 },
+                        { x: 0.5, y: 0, w: 0.5, h: 1 },
+                    ]
+                },
+                {
+                    id: '3-side', name: '2×3 Grid', boxes: [
+                        { x: 0, y: 0, w: 0.5, h: 1 / 3 },
+                        { x: 0.5, y: 0, w: 0.5, h: 1 / 3 },
+                        { x: 0, y: 1 / 3, w: 0.5, h: 1 / 3 },
+                        { x: 0.5, y: 1 / 3, w: 0.5, h: 1 / 3 },
+                        { x: 0, y: 2 / 3, w: 0.5, h: 1 / 3 },
+                        { x: 0.5, y: 2 / 3, w: 0.5, h: 1 / 3 },
+                    ]
+                },
+                {
+                    id: '4-side', name: '2×4 Grid', boxes: [
+                        { x: 0, y: 0, w: 0.5, h: 0.25 },
+                        { x: 0.5, y: 0, w: 0.5, h: 0.25 },
+                        { x: 0, y: 0.25, w: 0.5, h: 0.25 },
+                        { x: 0.5, y: 0.25, w: 0.5, h: 0.25 },
+                        { x: 0, y: 0.5, w: 0.5, h: 0.25 },
+                        { x: 0.5, y: 0.5, w: 0.5, h: 0.25 },
+                        { x: 0, y: 0.75, w: 0.5, h: 0.25 },
+                        { x: 0.5, y: 0.75, w: 0.5, h: 0.25 },
+                    ]
+                },
+                {
+                    id: '1top-3bottom', name: '1 Top + 3 Bottom', boxes: [
+                        { x: 0, y: 0, w: 1, h: 0.5 },
+                        { x: 0, y: 0.5, w: 1 / 3, h: 0.5 },
+                        { x: 1 / 3, y: 0.5, w: 1 / 3, h: 0.5 },
+                        { x: 2 / 3, y: 0.5, w: 1 / 3, h: 0.5 },
+                    ]
+                },
+                {
+                    id: '2-stack', name: '2 Stacked', boxes: [
+                        { x: 0, y: 0, w: 1, h: 0.5 },
+                        { x: 0, y: 0.5, w: 1, h: 0.5 },
+                    ]
+                },
+                {
+                    id: '3-stack', name: '3 Stacked', boxes: [
+                        { x: 0, y: 0, w: 1, h: 1 / 3 },
+                        { x: 0, y: 1 / 3, w: 1, h: 1 / 3 },
+                        { x: 0, y: 2 / 3, w: 1, h: 1 / 3 },
+                    ]
+                },
+                {
+                    id: '4-stack', name: '4 Stacked', boxes: [
+                        { x: 0, y: 0, w: 1, h: 0.25 },
+                        { x: 0, y: 0.25, w: 1, h: 0.25 },
+                        { x: 0, y: 0.5, w: 1, h: 0.25 },
+                        { x: 0, y: 0.75, w: 1, h: 0.25 },
+                    ]
+                },
+                {
+                    id: '2top-1bottom', name: '2 Top + 1 Bottom', boxes: [
+                        { x: 0, y: 0, w: 0.5, h: 0.5 },
+                        { x: 0.5, y: 0, w: 0.5, h: 0.5 },
+                        { x: 0, y: 0.5, w: 1, h: 0.5 },
+                    ]
+                },
+                {
+                    id: '1top-2bottom', name: '1 Top + 2 Bottom', boxes: [
+                        { x: 0, y: 0, w: 1, h: 0.5 },
+                        { x: 0, y: 0.5, w: 0.5, h: 0.5 },
+                        { x: 0.5, y: 0.5, w: 0.5, h: 0.5 },
+                    ]
+                },
+                {
+                    id: '2left-2right', name: '2 Left + 2 Right', boxes: [
+                        { x: 0, y: 0, w: 0.5, h: 0.5 },
+                        { x: 0, y: 0.5, w: 0.5, h: 0.5 },
+                        { x: 0.5, y: 0, w: 0.5, h: 0.5 },
+                        { x: 0.5, y: 0.5, w: 0.5, h: 0.5 },
+                    ]
+                },
+                {
+                    id: '2left-3right', name: '2 Left + 3 Right', boxes: [
+                        { x: 0, y: 0, w: 0.5, h: 0.5 },
+                        { x: 0, y: 0.5, w: 0.5, h: 0.5 },
+                        { x: 0.5, y: 0, w: 0.5, h: 1 / 3 },
+                        { x: 0.5, y: 1 / 3, w: 0.5, h: 1 / 3 },
+                        { x: 0.5, y: 2 / 3, w: 0.5, h: 1 / 3 },
+                    ]
+                },
+                {
+                    id: '4-1', name: '4 + 1', boxes: [
+                        { x: 0, y: 0, w: 0.5, h: 0.375 },
+                        { x: 0.5, y: 0, w: 0.5, h: 0.375 },
+                        { x: 0, y: 0.375, w: 0.5, h: 0.375 },
+                        { x: 0.5, y: 0.375, w: 0.5, h: 0.375 },
+                        { x: 0, y: 0.75, w: 1, h: 0.25 },
+                    ]
+                },
+            ];
+            function getTemplate() {
+                return TEMPLATES.find(t => t.id === state.templateId) || TEMPLATES[0];
+            }
+
+            // Crop (pan/zoom) is stored per-image, not per-box, so it travels with the
+            // image when it's swapped or moved to a different box instead of resetting.
+            function getCrop(imageId) {
+                if (imageId == null) return null;
+                if (!state.crops[imageId]) state.crops[imageId] = { offsetX: 0.5, offsetY: 0.5, zoom: 1 };
+                return state.crops[imageId];
+            }
+
+            const ASPECT_PRESETS = [
+                { id: 'square', name: 'Square (1:1)', w: 1, h: 1 },
+                { id: 'portrait', name: 'Portrait (4:5)', w: 4, h: 5 },
+                { id: 'story', name: 'Story (9:16)', w: 9, h: 16 },
+                { id: 'landscape', name: 'Landscape (16:9)', w: 16, h: 9 },
+            ];
+
+            // Box i always shows images[i] — simple, predictable, and means dragging
+            // a thumbnail to reorder it in the Images list is the only way to change
+            // which panel an image appears in.
+            function getBoxImage(boxIndex) {
+                return state.images[boxIndex] || null;
+            }
 
             // ---------- Autosave (IndexedDB) ----------
             // localStorage's ~5-10MB quota is too small for multiple base64 images,
@@ -1148,6 +1489,11 @@
                         padding: state.padding,
                         bg: state.bg,
                         bgTransparent: state.bgTransparent,
+                        layoutMode: state.layoutMode,
+                        templateId: state.templateId,
+                        aspectRatio: state.aspectRatio,
+                        outputWidth: state.outputWidth,
+                        crops: state.crops,
                     });
                 }, 800);
             }
@@ -1196,6 +1542,11 @@
                     padding: state.padding,
                     bg: state.bg,
                     bgTransparent: state.bgTransparent,
+                    layoutMode: state.layoutMode,
+                    templateId: state.templateId,
+                    aspectRatio: state.aspectRatio,
+                    outputWidth: state.outputWidth,
+                    crops: state.crops,
                 });
             }
 
@@ -1221,6 +1572,10 @@
                     const isActive = state.bgTransparent ? s.dataset.bg === 'transparent' : s.dataset.bg === state.bg;
                     s.classList.toggle('active', isActive);
                 });
+                syncLayoutModeUI();
+                renderTemplateGrid();
+                syncAspectSelect();
+                outWidthInput.value = state.outputWidth;
             }
 
             function applySnapshot(json) {
@@ -1232,6 +1587,11 @@
                 state.padding = snap.padding;
                 state.bg = snap.bg;
                 state.bgTransparent = snap.bgTransparent;
+                state.layoutMode = snap.layoutMode ?? state.layoutMode;
+                state.templateId = snap.templateId ?? state.templateId;
+                state.aspectRatio = snap.aspectRatio ?? state.aspectRatio;
+                state.outputWidth = snap.outputWidth ?? state.outputWidth;
+                state.crops = snap.crops ?? state.crops;
                 syncControlsFromState();
                 renderAll();
             }
@@ -1289,12 +1649,13 @@
                     img.onload = () => {
                         dismissRestoreAsNewSession();
                         pushUndo();
-                        state.images.push({
+                        const newImage = {
                             id: ++idCounter,
                             src: e.target.result,
                             naturalW: img.naturalWidth,
                             naturalH: img.naturalHeight,
-                        });
+                        };
+                        state.images.push(newImage);
                         renderAll();
                     };
                     img.src = e.target.result;
@@ -1372,6 +1733,162 @@
             $('#colMinus').addEventListener('click', () => { pushUndo(); setColumns(state.columns - 1); });
             $('#colPlus').addEventListener('click', () => { pushUndo(); setColumns(state.columns + 1); });
 
+            // ---------- Layout mode (Auto-Stitch / Template) ----------
+            const autoModeSection = $('#autoModeSection');
+            const templateModeSection = $('#templateModeSection');
+
+            function syncLayoutModeUI() {
+                document.querySelectorAll('#layoutModeSeg button').forEach(b => b.classList.toggle('active', b.dataset.mode === state.layoutMode));
+                autoModeSection.style.display = state.layoutMode === 'auto' ? '' : 'none';
+                templateModeSection.style.display = state.layoutMode === 'template' ? '' : 'none';
+            }
+
+            document.querySelectorAll('#layoutModeSeg button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (btn.classList.contains('active')) return;
+                    pushUndo();
+                    state.layoutMode = btn.dataset.mode;
+                    syncLayoutModeUI();
+                    renderAll();
+                });
+            });
+
+            // ---------- Template picker (collapsible) ----------
+            const templateGrid = $('#templateGrid');
+            const templateAccordionToggle = $('#templateAccordionToggle');
+            const templateCurrentLabel = $('#templateCurrentLabel');
+
+            function setTemplateAccordionOpen(open) {
+                templateGrid.style.display = open ? 'grid' : 'none';
+                templateAccordionToggle.classList.toggle('open', open);
+            }
+
+            templateAccordionToggle.addEventListener('click', () => {
+                const isOpen = templateGrid.style.display !== 'none';
+                setTemplateAccordionOpen(!isOpen);
+            });
+
+            function renderTemplateGrid() {
+                templateCurrentLabel.textContent = getTemplate().name;
+                templateGrid.innerHTML = '';
+                TEMPLATES.forEach(tmpl => {
+                    const card = document.createElement('div');
+                    card.className = 'template-card' + (tmpl.id === state.templateId ? ' active' : '');
+                    card.dataset.id = tmpl.id;
+
+                    const preview = document.createElement('div');
+                    preview.className = 'template-card-preview';
+                    tmpl.boxes.forEach(b => {
+                        const box = document.createElement('div');
+                        box.className = 'template-card-box';
+                        box.style.left = `calc(${b.x * 100}% + 1px)`;
+                        box.style.top = `calc(${b.y * 100}% + 1px)`;
+                        box.style.width = `calc(${b.w * 100}% - 2px)`;
+                        box.style.height = `calc(${b.h * 100}% - 2px)`;
+                        preview.appendChild(box);
+                    });
+                    card.appendChild(preview);
+
+                    const label = document.createElement('div');
+                    label.className = 'template-card-label';
+                    label.textContent = tmpl.name;
+                    card.appendChild(label);
+
+                    card.addEventListener('click', () => {
+                        if (state.templateId === tmpl.id) { setTemplateAccordionOpen(false); return; }
+                        pushUndo();
+                        state.templateId = tmpl.id;
+                        renderTemplateGrid();
+                        renderAll();
+                        setTemplateAccordionOpen(false);
+                    });
+
+                    templateGrid.appendChild(card);
+                });
+            }
+
+            // ---------- Aspect ratio ----------
+            const aspectSelect = $('#aspectSelect');
+            const customAspectRow = $('#customAspectRow');
+            const aspectWInput = $('#aspectW');
+            const aspectHInput = $('#aspectH');
+
+            // Build the option list once; a plain <select> naturally shows whichever
+            // option is active (including "Custom") without any extra active-state
+            // bookkeeping, and never overflows the sidebar like the segmented control did.
+            ASPECT_PRESETS.forEach(preset => {
+                const opt = document.createElement('option');
+                opt.value = preset.id;
+                opt.textContent = preset.name;
+                aspectSelect.appendChild(opt);
+            });
+            const customOpt = document.createElement('option');
+            customOpt.value = 'custom';
+            customOpt.textContent = 'Custom';
+            aspectSelect.appendChild(customOpt);
+
+            function currentAspectPresetId() {
+                const match = ASPECT_PRESETS.find(p => p.w === state.aspectRatio.w && p.h === state.aspectRatio.h);
+                return match ? match.id : 'custom';
+            }
+
+            function syncAspectSelect() {
+                const activeId = currentAspectPresetId();
+                aspectSelect.value = activeId;
+                customAspectRow.style.display = activeId === 'custom' ? '' : 'none';
+                if (activeId === 'custom') {
+                    aspectWInput.value = state.aspectRatio.w;
+                    aspectHInput.value = state.aspectRatio.h;
+                }
+            }
+
+            aspectSelect.addEventListener('change', () => {
+                const id = aspectSelect.value;
+                if (id === 'custom') {
+                    customAspectRow.style.display = '';
+                    aspectWInput.value = state.aspectRatio.w;
+                    aspectHInput.value = state.aspectRatio.h;
+                    return; // nothing committed yet until the person edits W/H below
+                }
+                const preset = ASPECT_PRESETS.find(p => p.id === id);
+                if (!preset) return;
+                pushUndo();
+                state.aspectRatio = { w: preset.w, h: preset.h };
+                customAspectRow.style.display = 'none';
+                renderAll();
+            });
+
+            function commitCustomAspect() {
+                const w = parseInt(aspectWInput.value) || 1;
+                const h = parseInt(aspectHInput.value) || 1;
+                pushUndo();
+                state.aspectRatio = { w, h };
+                renderAll();
+            }
+            aspectWInput.addEventListener('change', commitCustomAspect);
+            aspectHInput.addEventListener('change', commitCustomAspect);
+
+            // ---------- Output width (template mode) ----------
+            const outWidthInput = $('#outWidthInput');
+            function setOutputWidth(v) {
+                v = Math.max(200, Math.min(4000, v));
+                state.outputWidth = v;
+                outWidthInput.value = v;
+                renderStage();
+            }
+            outWidthInput.addEventListener('focus', () => { outWidthInput.dataset.preSnapshot = snapshotState(); });
+            outWidthInput.addEventListener('input', function () {
+                const v = parseInt(this.value);
+                if (!isNaN(v) && v > 0) { state.outputWidth = v; renderStage(); }
+            });
+            outWidthInput.addEventListener('change', () => {
+                const v = parseInt(outWidthInput.value);
+                setOutputWidth(isNaN(v) ? state.outputWidth : v);
+                if (outWidthInput.dataset.preSnapshot) { commitPending(outWidthInput.dataset.preSnapshot); delete outWidthInput.dataset.preSnapshot; }
+            });
+            $('#outWidthMinus').addEventListener('click', () => { pushUndo(); setOutputWidth(state.outputWidth - 20); });
+            $('#outWidthPlus').addEventListener('click', () => { pushUndo(); setOutputWidth(state.outputWidth + 20); });
+
             function commitPending(preSnapshot) {
                 undoStack.push(preSnapshot);
                 if (undoStack.length > MAX_HISTORY) undoStack.shift();
@@ -1425,6 +1942,7 @@
                 if (state.images.length === 0) return;
                 pushUndo();
                 state.images = [];
+                state.crops = {};
                 renderAll();
             });
 
@@ -1551,6 +2069,65 @@
                 }
             }
 
+            // Computes pixel-space box rects for the current template + aspect ratio +
+            // output width, and attaches each box's assigned image (with its pan/zoom
+            // crop state) where present. Boxes with no image assigned are returned
+            // separately as `empty` entries so the renderer can show a "+" placeholder.
+            function computeTemplateLayout() {
+                const tmpl = getTemplate();
+                const gap = state.gap;
+                const pad = state.padding;
+                const W = state.outputWidth;
+                const H = Math.round(W * (state.aspectRatio.h / state.aspectRatio.w));
+                const contentW = W - pad * 2;
+                const contentH = H - pad * 2;
+                const halfGap = Math.round(gap / 2);
+
+                const items = [];
+                const empty = [];
+
+                tmpl.boxes.forEach((b, i) => {
+                    const rawXStart = Math.round(pad + b.x * contentW);
+                    const rawXEnd = Math.round(pad + (b.x + b.w) * contentW);
+                    const rawYStart = Math.round(pad + b.y * contentH);
+                    const rawYEnd = Math.round(pad + (b.y + b.h) * contentH);
+                    const x = rawXStart + halfGap;
+                    const y = rawYStart + halfGap;
+                    const w = (rawXEnd - rawXStart) - gap;
+                    const h = (rawYEnd - rawYStart) - gap;
+
+                    const im = getBoxImage(i);
+
+                    if (im) {
+                        const crop = getCrop(im.id);
+                        items.push({
+                            boxIndex: i, x, y, w, h, src: im.src,
+                            offsetX: crop.offsetX, offsetY: crop.offsetY, zoom: crop.zoom,
+                        });
+                    } else {
+                        empty.push({ boxIndex: i, x, y, w, h });
+                    }
+                });
+
+                return { width: W, height: H, items, empty };
+            }
+
+            // Given a box size and an image's natural size plus pan (offsetX/offsetY,
+            // 0-1) and zoom (>=1), returns the source-rect (sx, sy, sw, sh) to draw —
+            // the same "cover crop" math used everywhere, generalized to support pan
+            // and zoom instead of always being centered at zoom 1.
+            function computeCropRect(boxW, boxH, naturalW, naturalH, offsetX, offsetY, zoom) {
+                const coverScale = Math.max(boxW / naturalW, boxH / naturalH) * zoom;
+                let sw = boxW / coverScale;
+                let sh = boxH / coverScale;
+                sw = Math.min(sw, naturalW);
+                sh = Math.min(sh, naturalH);
+                let sx = (naturalW - sw) * offsetX;
+                let sy = (naturalH - sh) * offsetY;
+                sx = Math.max(0, Math.min(naturalW - sw, sx));
+                sy = Math.max(0, Math.min(naturalH - sh, sy));
+                return { sx, sy, sw, sh };
+            }
             // ---------- Rendering ----------
             function renderAll() {
                 renderImageList();
@@ -1723,6 +2300,7 @@
                     del.addEventListener('click', () => {
                         pushUndo();
                         state.images = state.images.filter(x => x.id !== im.id);
+                        delete state.crops[im.id];
                         renderAll();
                     });
                     row.appendChild(del);
@@ -1735,9 +2313,6 @@
             let lastLayout = null;
 
             function renderStage() {
-                const layout = computeLayout();
-                lastLayout = layout;
-
                 if (state.images.length === 0) {
                     emptyState.style.display = 'flex';
                     stageOuter.style.display = 'none';
@@ -1745,12 +2320,24 @@
                     downloadBtn.disabled = true;
                     copyBtn.disabled = true;
                     dimsInfo.innerHTML = `<b>0</b> images`;
+                    lastLayout = null;
                     return;
                 }
 
                 emptyState.style.display = 'none';
                 stageOuter.style.display = 'block';
                 canvasWrap.classList.remove('empty');
+
+                if (state.layoutMode === 'template') {
+                    renderTemplateStage();
+                } else {
+                    renderAutoStage();
+                }
+            }
+
+            function renderAutoStage() {
+                const layout = computeLayout();
+                lastLayout = layout;
                 downloadBtn.disabled = false;
                 copyBtn.disabled = false;
 
@@ -1781,6 +2368,234 @@
                 dimsInfo.innerHTML = `<b>${state.images.length}</b> images &nbsp;·&nbsp; ${Math.round(layout.width)}×${Math.round(layout.height)}px`;
             }
 
+            function renderTemplateStage() {
+                const layout = computeTemplateLayout();
+                lastLayout = layout;
+                downloadBtn.disabled = layout.items.length === 0;
+                copyBtn.disabled = layout.items.length === 0;
+
+                const wrapW = canvasWrap.clientWidth - 56;
+                const wrapH = canvasWrap.clientHeight - 56;
+                const scale = Math.min(1, wrapW / layout.width, wrapH > 0 ? wrapH / Math.max(layout.height, 1) : 1);
+
+                stage.style.width = (layout.width * scale) + 'px';
+                stage.style.height = (layout.height * scale) + 'px';
+                stageOuter.style.background = state.bgTransparent ? '' : state.bg;
+
+                stage.innerHTML = '';
+
+                layout.items.forEach(it => {
+                    const div = document.createElement('div');
+                    div.className = 'template-box';
+                    div.dataset.boxIndex = it.boxIndex;
+                    div.style.left = (it.x * scale) + 'px';
+                    div.style.top = (it.y * scale) + 'px';
+                    div.style.width = (it.w * scale) + 'px';
+                    div.style.height = (it.h * scale) + 'px';
+                    div.style.backgroundImage = `url("${it.src}")`;
+                    stage.appendChild(div);
+                    updateBoxVisual(div, it.boxIndex);
+                    attachBoxInteraction(div, it.boxIndex);
+                });
+
+                layout.empty.forEach(e => {
+                    const div = document.createElement('div');
+                    div.className = 'template-box-empty';
+                    div.dataset.boxIndex = e.boxIndex;
+                    div.style.left = (e.x * scale) + 'px';
+                    div.style.top = (e.y * scale) + 'px';
+                    div.style.width = (e.w * scale) + 'px';
+                    div.style.height = (e.h * scale) + 'px';
+                    div.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+                    div.addEventListener('click', () => {
+                        fileInput.click();
+                    });
+                    stage.appendChild(div);
+                });
+
+                dimsInfo.innerHTML = `<b>${state.images.length}</b> images &nbsp;·&nbsp; ${Math.round(layout.width)}×${Math.round(layout.height)}px`;
+            }
+
+            // Recomputes and applies a template box's background-size/position from
+            // its current zoom/pan state. Called on render and after zoom/pan changes
+            // that don't need a full re-render (keeps dragging/scrolling smooth).
+            function updateBoxVisual(div, boxIndex) {
+                const im = getBoxImage(boxIndex);
+                if (!im) return;
+                const crop = getCrop(im.id);
+                const rect = div.getBoundingClientRect();
+                const coverScale = Math.max(rect.width / im.naturalW, rect.height / im.naturalH) * crop.zoom;
+                const dispW = im.naturalW * coverScale;
+                const dispH = im.naturalH * coverScale;
+                div.style.backgroundSize = `${dispW}px ${dispH}px`;
+                div.style.backgroundPosition = `${crop.offsetX * 100}% ${crop.offsetY * 100}%`;
+            }
+
+            // Pan (drag), wheel-to-zoom (desktop), and double-click/double-tap zoom
+            // (mobile fallback). Moving an image between panels is handled entirely
+            // by the Images list (drag to reorder) — a plain tap on a box here does
+            // nothing, it's not a selection/swap trigger.
+            function attachBoxInteraction(div, boxIndex) {
+                // ---- Wheel zoom (desktop) ----
+                let wheelPreSnapshot = null;
+                let wheelTimer = null;
+                div.addEventListener('wheel', e => {
+                    e.preventDefault();
+                    const im = getBoxImage(boxIndex);
+                    if (!im) return;
+                    const crop = getCrop(im.id);
+                    if (!wheelPreSnapshot) wheelPreSnapshot = snapshotState();
+                    const delta = -e.deltaY * 0.0015;
+                    crop.zoom = Math.max(1, Math.min(4, crop.zoom + delta));
+                    updateBoxVisual(div, boxIndex);
+                    clearTimeout(wheelTimer);
+                    wheelTimer = setTimeout(() => {
+                        if (wheelPreSnapshot) { commitPending(wheelPreSnapshot); wheelPreSnapshot = null; }
+                        scheduleAutosave();
+                    }, 500);
+                }, { passive: false });
+
+                // ---- Double-click/double-tap zoom step (quick fallback alongside pinch) ----
+                div.addEventListener('dblclick', e => {
+                    e.preventDefault();
+                    const im = getBoxImage(boxIndex);
+                    if (!im) return;
+                    const crop = getCrop(im.id);
+                    pushUndo();
+                    crop.zoom = crop.zoom >= 2.5 ? 1 : crop.zoom + 0.75;
+                    updateBoxVisual(div, boxIndex);
+                    scheduleAutosave();
+                });
+
+                // ---- Pan (1 finger / mouse drag) and pinch-to-zoom (2 fingers) ----
+                // Tracks every active pointer in a Map so a second finger touching down
+                // mid-drag correctly upgrades the gesture from pan to pinch, and lifting
+                // one finger during a pinch correctly downgrades back to pan with
+                // whichever finger remains.
+                const pointers = new Map(); // pointerId -> {x, y}
+                let mode = null; // null | 'pan' | 'pinch'
+                let moved = false;
+                let gesturePreSnapshot = null;
+                let listenersAttached = false;
+
+                let panStartX = 0, panStartY = 0, panStartOffsetX = 0.5, panStartOffsetY = 0.5;
+                let boxWpx = 0, boxHpx = 0, dispW = 0, dispH = 0;
+                let pinchStartDist = 1, pinchStartZoom = 1;
+
+                function getCtx() {
+                    const im = getBoxImage(boxIndex);
+                    if (!im) return null;
+                    return { im, crop: getCrop(im.id) };
+                }
+
+                function recomputeDisp(crop, im) {
+                    const rect = div.getBoundingClientRect();
+                    boxWpx = rect.width; boxHpx = rect.height;
+                    const coverScale = Math.max(boxWpx / im.naturalW, boxHpx / im.naturalH) * crop.zoom;
+                    dispW = im.naturalW * coverScale;
+                    dispH = im.naturalH * coverScale;
+                }
+
+                function startPan(ctx, x, y) {
+                    mode = 'pan';
+                    panStartX = x; panStartY = y;
+                    panStartOffsetX = ctx.crop.offsetX; panStartOffsetY = ctx.crop.offsetY;
+                    recomputeDisp(ctx.crop, ctx.im);
+                }
+
+                function pinchDistance() {
+                    const pts = Array.from(pointers.values());
+                    return Math.max(1, Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y));
+                }
+
+                function attachWindowListeners() {
+                    if (listenersAttached) return;
+                    listenersAttached = true;
+                    window.addEventListener('pointermove', onMove, { passive: false });
+                    window.addEventListener('pointerup', onUp);
+                    window.addEventListener('pointercancel', onUp);
+                }
+                function detachWindowListeners() {
+                    listenersAttached = false;
+                    window.removeEventListener('pointermove', onMove);
+                    window.removeEventListener('pointerup', onUp);
+                    window.removeEventListener('pointercancel', onUp);
+                }
+
+                function onMove(ev) {
+                    if (!pointers.has(ev.pointerId)) return;
+                    pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+                    const ctx = getCtx();
+                    if (!ctx) return;
+
+                    if (mode === 'pinch' && pointers.size === 2) {
+                        const dist = pinchDistance();
+                        ctx.crop.zoom = Math.max(1, Math.min(4, pinchStartZoom * (dist / pinchStartDist)));
+                        updateBoxVisual(div, boxIndex);
+                    } else if (mode === 'pan' && pointers.size === 1) {
+                        const dx = ev.clientX - panStartX, dy = ev.clientY - panStartY;
+                        if (!moved && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
+                            moved = true;
+                            if (!gesturePreSnapshot) gesturePreSnapshot = snapshotState();
+                            div.classList.add('panning');
+                        }
+                        if (moved) {
+                            let nx = dispW > boxWpx ? panStartOffsetX - dx / (dispW - boxWpx) : 0.5;
+                            let ny = dispH > boxHpx ? panStartOffsetY - dy / (dispH - boxHpx) : 0.5;
+                            nx = Math.max(0, Math.min(1, nx));
+                            ny = Math.max(0, Math.min(1, ny));
+                            ctx.crop.offsetX = nx;
+                            ctx.crop.offsetY = ny;
+                            div.style.backgroundPosition = `${nx * 100}% ${ny * 100}%`;
+                        }
+                    }
+                }
+
+                function onUp(ev) {
+                    if (!pointers.has(ev.pointerId)) return;
+                    pointers.delete(ev.pointerId);
+                    try { div.releasePointerCapture(ev.pointerId); } catch (err) { }
+
+                    if (pointers.size === 1) {
+                        // Downgrade pinch -> pan using whichever finger is still down.
+                        const ctx = getCtx();
+                        const remaining = Array.from(pointers.values())[0];
+                        if (ctx) startPan(ctx, remaining.x, remaining.y);
+                        moved = true;
+                    } else if (pointers.size === 0) {
+                        detachWindowListeners();
+                        div.classList.remove('panning');
+                        mode = null;
+                        if (moved) {
+                            if (gesturePreSnapshot) { commitPending(gesturePreSnapshot); gesturePreSnapshot = null; }
+                            scheduleAutosave();
+                        }
+                        moved = false;
+                    }
+                }
+
+                div.addEventListener('pointerdown', e => {
+                    if (e.pointerType === 'mouse' && e.button !== 0) return;
+                    const ctx = getCtx();
+                    if (!ctx) return;
+                    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+                    try { div.setPointerCapture(e.pointerId); } catch (err) { }
+                    attachWindowListeners();
+
+                    if (pointers.size === 1) {
+                        moved = false;
+                        startPan(ctx, e.clientX, e.clientY);
+                    } else if (pointers.size === 2) {
+                        mode = 'pinch';
+                        moved = true;
+                        if (!gesturePreSnapshot) gesturePreSnapshot = snapshotState();
+                        pinchStartDist = pinchDistance();
+                        pinchStartZoom = ctx.crop.zoom;
+                        div.classList.add('panning');
+                    }
+                });
+            }
+
             // belt-and-suspenders: block drag starting anywhere inside the stage
             stage.addEventListener('dragstart', e => e.preventDefault());
 
@@ -1804,23 +2619,14 @@
 
                 let loaded = 0;
                 const total = layout.items.length;
+                if (total === 0) { callback(canvas); return; }
                 layout.items.forEach(it => {
                     const img = new Image();
                     img.onload = () => {
-                        const boxRatio = it.w / it.h;
-                        const imgRatio = img.naturalWidth / img.naturalHeight;
-                        let sx, sy, sw, sh;
-                        if (imgRatio > boxRatio) {
-                            sh = img.naturalHeight;
-                            sw = sh * boxRatio;
-                            sx = (img.naturalWidth - sw) / 2;
-                            sy = 0;
-                        } else {
-                            sw = img.naturalWidth;
-                            sh = sw / boxRatio;
-                            sx = 0;
-                            sy = (img.naturalHeight - sh) / 2;
-                        }
+                        const { sx, sy, sw, sh } = computeCropRect(
+                            it.w, it.h, img.naturalWidth, img.naturalHeight,
+                            it.offsetX ?? 0.5, it.offsetY ?? 0.5, it.zoom ?? 1
+                        );
                         ctx.drawImage(img, sx, sy, sw, sh, it.x, it.y, it.w, it.h);
                         loaded++;
                         if (loaded === total) callback(canvas);
@@ -1877,6 +2683,11 @@
                 state.padding = saved.padding ?? state.padding;
                 state.bg = saved.bg ?? state.bg;
                 state.bgTransparent = saved.bgTransparent ?? state.bgTransparent;
+                state.layoutMode = saved.layoutMode ?? state.layoutMode;
+                state.templateId = saved.templateId ?? state.templateId;
+                state.aspectRatio = saved.aspectRatio ?? state.aspectRatio;
+                state.outputWidth = saved.outputWidth ?? state.outputWidth;
+                state.crops = saved.crops ?? state.crops;
                 syncControlsFromState();
                 renderAll();
             }
@@ -1897,6 +2708,7 @@
                 if (saved && Array.isArray(saved.images) && saved.images.length > 0) {
                     restoreDecisionPending = true;
                 }
+                syncControlsFromState();
                 renderAll();
                 if (saved && Array.isArray(saved.images) && saved.images.length > 0) {
                     restoreBanner.classList.add('show');
